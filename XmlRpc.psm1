@@ -43,7 +43,7 @@ function ConvertTo-XmlRpcType
         }
 
         # Return simple Types
-        if(('Double','Boolean','False') -contains $Type)
+        if(('Double','Int32','Boolean','False') -contains $Type)
         {
             return "<value><$($Type)>$($inputObject)</$($Type)></value>"
         }
@@ -55,9 +55,14 @@ function ConvertTo-XmlRpcType
         }
 
         # Int32 must be casted as Int
-        if ($Type -eq 'Int32')
+        if ($Type -eq 'Int16')
         {
             return "<value><int>$inputObject</int></value>"
+        }
+
+        if ($type -eq "SwitchParameter")
+        {
+            return "<value><boolean>$inputObject.IsPresent</boolean></value>"
         }
 
         # Return In64 as Double
@@ -119,7 +124,10 @@ function ConvertTo-XmlRpcMethodCall {
         [String]$Name,
 
         [Parameter()]
-        [Object]$Params
+        [Object]$Params,
+
+        [Parameter()]
+        [Array]$CustomTypes
     )
 
 
@@ -127,7 +135,7 @@ function ConvertTo-XmlRpcMethodCall {
         $out = [String]((&{
             "<?xml version=""1.0""?><methodCall><methodName>$($Name)</methodName><params>"
             if($Params) {
-                $Params | %{ "<param>$(&{ConvertTo-XmlRpcType $_})</param>" } }
+                $Params | %{ "<param>$(&{ConvertTo-XmlRpcType $_ -CustomTypes $CustomTypes})</param>" } }
             else { "$(ConvertTo-XmlRpcType $NULL)" }
             "</params></methodCall>"
         }) -join(''))
@@ -144,14 +152,16 @@ function Send-XmlRpcRequest {
         [Parameter(Mandatory = $true)]
         [String]$MethodName,
         [Parameter()]
-        [Object]$Params
+        [Object]$Params,
+        [Parameter()]
+        [Array]$CustomTypes
     )
 
     try{
         ($doc=New-Object Xml.XmlDocument).LoadXml(
             (New-Object Net.WebClient).UploadString(
                 $Url,
-                ($global:z = ConvertTo-XmlRpcMethodCall $MethodName $Params)
+                ($global:z = ConvertTo-XmlRpcMethodCall $MethodName $Params -CustomTypes $CustomTypes)
             )
         )
         [Xml.XmlDocument]$doc
@@ -240,6 +250,7 @@ function ConvertFrom-Xml {
     }
 
     Process {
+        $global:u = $InputObject
         foreach ($param in ($InputObject.methodResponse.params.param)) {
             foreach ($value in $param.value) {
                 #if (!($endFormats -contains $value.gettype().name)) {
