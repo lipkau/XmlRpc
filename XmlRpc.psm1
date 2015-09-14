@@ -15,30 +15,63 @@ Add-Type -AssemblyName System.Web
 
 function ConvertTo-XmlRpcType
 {
+    <#
+        .SYNOPSIS
+            Convert Data into XML declared datatype string
+
+        .DESCRIPTION
+            Convert Data into XML declared datatype string
+
+        .OUTPUTS
+            string
+
+        .PARAMETER InputObject
+            Object to be converted to XML string
+
+        .PARAMETER CustomTypes
+            Array of custom Object Types to be considered when converting
+
+        .EXAMPLE
+            ConvertTo-XmlRpcType "Hello World"
+            --------
+            Returns
+            <value><string>Hello World</string></value>
+
+        .EXAMPLE
+            ConvertTo-XmlRpcType 42
+            --------
+            Returns
+            <value><int32>42</int32></value>
+    #>
     [CmdletBinding()]
-    [OutputType(
-        [String]
-    )]
+    [OutputType([String])]
     param(
-        [Parameter(Position=0)]
+        [Parameter(
+            Position=0,
+            Mandatory=$true
+        )]
         $InputObject,
 
         [Parameter()]
         [Array]$CustomTypes
     )
 
-    Begin {
+    begin
+    {
         Write-Verbose "$($MyInvocation.MyCommand.Name):: Function started"
         $Objects = @('Object')
         $objects += $CustomTypes
     }
 
-    Process {
+    process
+    {
         if($inputObject -ne $null)
         {
             [string]$Type=$inputObject.GetType().Name
             # [string]$BaseType=$inputObject.GetType().BaseType
-        } else {
+        }
+        else
+        {
             return "<value></value>"
         }
 
@@ -72,7 +105,8 @@ function ConvertTo-XmlRpcType
         }
 
         # DateTime
-        if('DateTime' -eq $Type){
+        if('DateTime' -eq $Type)
+        {
             return "<value><dateTime.iso8601>$($inputObject.ToString(
             'yyyyMMddTHH:mm:ss'))</dateTime.iso8601></value>"
         }
@@ -111,67 +145,148 @@ function ConvertTo-XmlRpcType
         }
     }
 
-    End
+    end
         { Write-Verbose "$($MyInvocation.MyCommand.Name):: Function ended" }
 
 }
 
-function ConvertTo-XmlRpcMethodCall {
+function ConvertTo-XmlRpcMethodCall
+{
+    <#
+        .SYNOPSIS
+            Create a XML RPC Method Call string
+        .DESCRIPTION
+            Create a XML RPC Method Call string
+
+        .INPUTS
+            string
+            array
+
+        .OUTPUTS
+            string
+
+        .PARAMETER Name
+            Name of the Method to be called
+
+        .PARAMETER Params
+            Parameters to be passed to the Method
+
+        .PARAMETER CustomTypes
+            Array of custom Object Types to be considered when converting
+
+        .EXAMPLE
+            ConvertTo-XmlRpcMethodCall -Name updateName -Params @('oldName', 'newName')
+            ----------
+            Returns (line split and indentation just for conveniance)
+            <?xml version=""1.0""?>
+            <methodCall>
+              <methodName>updateName</methodName>
+              <params>
+                <param><value><string>oldName</string></value></param>
+                <param><value><string>newName</string></value></param>
+              </params>
+            </methodCall>
+    #>
     [CmdletBinding()]
+    [OutputType([string])]
     param
     (
         [Parameter(Mandatory = $true)]
         [String]$Name,
 
         [Parameter()]
-        [Object]$Params,
+        [Array]$Params,
 
         [Parameter()]
         [Array]$CustomTypes
     )
 
+    begin {}
 
-    Process {
-        $out = [String]((&{
+    process
+    {
+        [String]((&{
             "<?xml version=""1.0""?><methodCall><methodName>$($Name)</methodName><params>"
-            if($Params) {
-                $Params | %{ "<param>$(&{ConvertTo-XmlRpcType $_ -CustomTypes $CustomTypes})</param>" } }
-            else { "$(ConvertTo-XmlRpcType $NULL)" }
+            if($Params)
+            {
+                $Params | %{ "<param>$(&{ConvertTo-XmlRpcType $_ -CustomTypes $CustomTypes})</param>" }
+            }
+            else
+            {
+                "$(ConvertTo-XmlRpcType $NULL)"
+            }
             "</params></methodCall>"
         }) -join(''))
-
-        $out
     }
+
+    end {}
 }
 
-function Send-XmlRpcRequest {
+function Send-XmlRpcRequest
+{
+    <#
+        .SYNOPSIS
+            Send a XML RPC Request
+
+        .DESCRIPTION
+            Send a XML RPC Request
+
+        .INPUTS
+            string
+            array
+
+        .OUTPUTS
+            XML.XmlDocument
+
+        .EXAMPLE
+            Send-XmlRpcRequest -Url "example.com" -MethodName "updateName" -Params @('oldName', 'newName')
+            ---------
+            Description
+            Calls a method "updateName("oldName", "newName")" on the server example.com
+    #>
     [CmdletBinding()]
+    [OutputType([Xml.XmlDocument])]
     param(
         [Parameter(Mandatory = $true)]
         [String]$Url,
+
         [Parameter(Mandatory = $true)]
         [String]$MethodName,
+
         [Parameter()]
-        [Object]$Params,
+        [Array]$Params,
+
         [Parameter()]
         [Array]$CustomTypes
     )
 
-    try{
-        ($doc=New-Object Xml.XmlDocument).LoadXml(
-            (New-Object Net.WebClient).UploadString(
-                $Url,
-                ($global:z = ConvertTo-XmlRpcMethodCall $MethodName $Params -CustomTypes $CustomTypes)
+    begin {}
+
+    process
+    {
+        $methodCall = ConvertTo-XmlRpcMethodCall $MethodName $Params -CustomTypes $CustomTypes
+        Write-Debug $methodCall
+
+        try
+        {
+            ($doc=New-Object Xml.XmlDocument).LoadXml(
+                (New-Object Net.WebClient).UploadString(
+                    $Url,
+                    $methodCall
+                )
             )
-        )
-        [Xml.XmlDocument]$doc
+            [Xml.XmlDocument]$doc
+        }
+        catch [System.Net.WebException],[System.IO.IOException]{'WebClient Error'}
+        catch {'Unhandle Error',$error[0]}
+        finally {}
     }
-    catch [System.Net.WebException],[System.IO.IOException] {'WebClient Error'}
-    catch {'Unhandle Error',$error[0]}
-    finally {}
+
+    end {}
 }
 
-function ConvertFrom-Xml {
+function ConvertFrom-Xml
+{
     [CmdletBinding()]
     param(
         # Array node
@@ -179,30 +294,39 @@ function ConvertFrom-Xml {
         [System.Xml.XmlDocument]$InputObject
     )
 
-    Begin {
+    begin
+    {
         $o = @()
         $endFormats = @('Int32','Double','Boolean','String','False','dateTime.iso8601')
 
-        function ConvertFrom-XmlNode {
+        function ConvertFrom-XmlNode
+        {
             [CmdletBinding()]
             param(
                 [Parameter(Mandatory = $true)]
                 $InputNode
             )
 
-            Begin {
+            begin
+            {
                 $o = @()
                 $endFormats = @('Int32','Double','Boolean','String','False','dateTime.iso8601')
             }
 
-            Process {
-                switch (($InputNode | gm -MemberType Properties).Name) {
+            process
+            {
+                switch (($InputNode | gm -MemberType Properties).Name)
+                {
                     'struct' {
                         $properties = @{}
-                        foreach ($member in ($InputNode.struct.member)) {
-                            if (!($member.value.gettype().name -in ("XmlElement","Object[]"))) {
+                        foreach ($member in ($InputNode.struct.member))
+                        {
+                            if (!($member.value.gettype().name -in ("XmlElement","Object[]")))
+                            {
                                 $properties[$member.name] = $member.value
-                            } else {
+                            }
+                            else
+                            {
                                 $properties[$member.name] = ConvertFrom-XmlNode $member.value
                             }
                         }
@@ -212,11 +336,16 @@ function ConvertFrom-Xml {
                     }
                     'array' {
                         $properties = @()
-                        if ($InputNode.array.data) {
-                            foreach ($member in ($InputNode.array.data)) {
-                                if (!($member.value.gettype().name -in ("XmlElement","Object[]"))) {
+                        if ($InputNode.array.data)
+                        {
+                            foreach ($member in ($InputNode.array.data))
+                            {
+                                if (!($member.value.gettype().name -in ("XmlElement","Object[]")))
+                                {
                                     $properties += $member.value
-                                } else {
+                                }
+                                else
+                                {
                                     $member.value | % {$properties += ConvertFrom-XmlNode $_}
                                 }
                             }
@@ -238,29 +367,26 @@ function ConvertFrom-Xml {
                         $o += $InputNode
                         break
                     }
-
-
                 }
             }
 
-            End {
+            end
+            {
                 Write-Output $o
             }
         }
     }
 
-    Process {
-        $global:u = $InputObject
-        foreach ($param in ($InputObject.methodResponse.params.param)) {
-            foreach ($value in $param.value) {
-                #if (!($endFormats -contains $value.gettype().name)) {
-                    $o += ConvertFrom-XmlNode $value
-                #} else {
-                    #$o += $value
-                #}
+    process
+    {
+        foreach ($param in ($InputObject.methodResponse.params.param))
+        {
+            foreach ($value in $param.value)
+            {
+                ConvertFrom-XmlNode $value
             }
         }
     }
 
-    End {$o}
+    end {}
 }
