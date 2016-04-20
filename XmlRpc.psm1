@@ -193,6 +193,7 @@ function ConvertTo-XmlRpcMethodCall
     <#
         .SYNOPSIS
             Create a XML RPC Method Call string
+
         .DESCRIPTION
             Create a XML RPC Method Call string
 
@@ -309,8 +310,8 @@ function Send-XmlRpcRequest
     {
         if (!$methodCall) {
             $methodCall = ConvertTo-XmlRpcMethodCall $MethodName $Params -CustomTypes $CustomTypes
+            Write-Debug "Request BODY: $methodCall"
         }
-        # $global:b = $MethodCall
 
         try
         {
@@ -416,7 +417,7 @@ function ConvertFrom-Xml
                     }
                     'dateTime.iso8601' {
                         $string = $InputNode.'dateTime.iso8601'
-                        [datetime]::ParseExact($string,”yyyyMMddTHH:mm:ss”,$null)
+                        [datetime]::ParseExact($string,"yyyyMMddTHH:mm:ss",$null)
                         break
                     }
                     Default {
