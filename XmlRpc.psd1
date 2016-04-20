@@ -12,7 +12,7 @@
     RootModule = 'XmlRpc.psm1'
 
     # Version number of this module.
-    ModuleVersion = '1.0.1.0'
+    ModuleVersion = '1.0.1.1'
 
     # ID used to uniquely identify this module
     GUID = '5b652813-e52e-494d-9ca2-853418bf485f'
@@ -94,7 +94,12 @@
         PSData = @{
 
             # Tags applied to this module. These help with module discovery in online galleries.
-            # Tags = @()
+            Tags = @(
+                'XML-RPC'
+                'XMLRPC'
+                'SOAP'
+
+            )
 
             # A URL to the license for this module.
             LicenseUri = 'https://raw.githubusercontent.com/lipkau/XmlRpc/master/LICENSE'
@@ -109,6 +114,7 @@
             # ReleaseNotes = ''
 
         } # End of PSData hashtable
+
     }
 
     # HelpInfo URI of this module
