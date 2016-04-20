@@ -416,7 +416,7 @@ function ConvertFrom-Xml
                     }
                     'dateTime.iso8601' {
                         $string = $InputNode.'dateTime.iso8601'
-                        [datetime]::ParseExact($string,”yyyyMMddTHH:mm:ss”,$null)
+                        [datetime]::ParseExact($string,"yyyyMMddTHH:mm:ss",$null)
                         break
                     }
                     Default {
