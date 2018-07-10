@@ -85,7 +85,7 @@ function ConvertTo-XmlRpcType
         # Encode string to HTML
         if ($Type -eq 'String')
         {
-            return "<value><$Type>$([System.Web.HttpUtility]::HtmlEncode($inputObject))</$Type></value>"
+            return "<value><string>$([System.Web.HttpUtility]::HtmlEncode($inputObject))</string></value>"
         }
 
         # Int32 must be casted as Int
