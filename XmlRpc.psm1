@@ -412,7 +412,7 @@ function ConvertFrom-Xml
                         break
                     }
                     'boolean' {
-                        [bool]$InputNode.boolean
+                        [bool][int]$InputNode.boolean
                         break
                     }
                     'dateTime.iso8601' {
